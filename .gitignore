@@ -1,0 +1,24 @@
+# Dependencias y entornos virtuales
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# Archivos de entorno y configuración local
+.env
+.env.local
+
+# Vercel y despliegues
+.vercel/
+
+# Directorios de IDEs y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
