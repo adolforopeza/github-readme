@@ -3,14 +3,12 @@ import requests
 from http.server import BaseHTTPRequestHandler
 import math
 
-# Diccionario global para almacenar en caché los datos y el hash del commit actual
 CACHE = {
-    "data": None,  # Almacena la tupla con los lenguajes ordenados y el total de bytes
-    "commit_sha": None  # Almacena el identificador único del último commit desplegado en Vercel
+    "data": None,
+    "commit_sha": None
 }
 
-# Diccionario optimizado de colores oficiales de GitHub Linguist para los lenguajes
-COLORS =  {
+COLORS = {
     "PHP": "4F5D95", "JavaScript": "F1E05A", "HTML": "E34C26", "CSS": "563D7C",
     "Less": "1D365D", "Shell": "89E051", "GDScript": "355570", "Vue": "41B883",
     "SCSS": "C6538C", "PLpgSQL": "336791", "VCL": "1B887A", "Hack": "878787",
@@ -29,80 +27,86 @@ COLORS =  {
 }
 
 def fetch_github_stats():
-    token = os.getenv("GH_TOKEN")  # Obtiene el token de autenticación de GitHub desde las variables de entorno
-    if not token:  # Verifica si el token no está configurado
-        raise ValueError("Missing GH_TOKEN configuration.")  # Lanza una excepción si falta el token
+    token = os.getenv("GH_TOKEN")
+    if not token:
+        raise ValueError("Missing GH_TOKEN configuration.")
 
-    session = requests.Session()  # Inicializa una sesión HTTP persistente para optimizar conexiones TCP
+    session = requests.Session()
     session.headers.update({
-        "Authorization": f"Bearer {token}",  # Configura la cabecera de autorización con el token Bearer
-        "Accept": "application/vnd.github+json",  # Especifica el formato de aceptación de la API de GitHub
-        "User-Agent": "Vercel-Stats-Optimizer"  # Define un agente de usuario personalizado para la petición
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Vercel-Stats-Optimizer"
     })
 
-    repos = []  # Inicializa una lista vacía para acumular todos los repositorios del usuario
-    page = 1  # Inicializa el contador de paginación en la primera página
-    per_page = 100  # Define el límite máximo de elementos por página permitido por la API de GitHub
+    user_response = session.get("https://api.github.com/user", timeout=10)
+    if user_response.status_code == 200:
+        username = user_response.json().get("login", "GitHub")
+    else:
+        username = "GitHub"
 
-    while True:  # Inicia un bucle para recorrer todas las páginas de repositorios
+    repos = []
+    page = 1
+    per_page = 100
+
+    while True:
         url = (
             f"https://api.github.com/user/repos"
             f"?visibility=all"
             f"&affiliations=owner,collaborator,organization_member"
             f"&per_page={per_page}"
             f"&page={page}"
-        )  # Construye la URL del endpoint de repositorios con los filtros necesarios
+        )
 
-        response = session.get(url, timeout=10)  # Ejecuta la petición HTTP GET con un tiempo límite de 10 segundos
-        if response.status_code != 200:  # Comprueba si la respuesta no fue exitosa
-            break  # Rompe el bucle si ocurre un error o se termina el acceso
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            break
 
-        data = response.json()  # Convierte la respuesta HTTP en un objeto JSON/diccionario de Python
-        if not data or not isinstance(data, list):  # Valida si los datos están vacíos o no son una lista
-            break  # Rompe el bucle si no hay más elementos válidos
+        data = response.json()
+        if not data or not isinstance(data, list):
+            break
 
-        repos.extend(data)  # Añade los repositorios obtenidos a la lista principal
-        if len(data) < per_page:  # Verifica si la cantidad de elementos es menor al límite por página
-            break  # Rompe el bucle porque se alcanzó la última página de resultados
-        page += 1  # Incrementa el número de página para la siguiente iteración
+        repos.extend(data)
+        if len(data) < per_page:
+            break
+        page += 1
 
-    global_languages = {}  # Inicializa un diccionario para acumular los bytes totales por lenguaje
-    total_bytes = 0  # Inicializa el contador global de bytes de código analizados
+    global_languages = {}
+    total_bytes = 0
 
-    for repo in repos:  # Itera sobre cada repositorio obtenido de la lista
-        lang_url = repo.get("languages_url")  # Extrae la URL del endpoint de lenguajes del repositorio actual
-        if not lang_url:  # Salta al siguiente repositorio si la URL de lenguajes no existe
+    for repo in repos:
+        lang_url = repo.get("languages_url")
+        if not lang_url:
             continue
 
-        lang_res = session.get(lang_url, timeout=5)  # Realiza la petición GET para obtener los lenguajes del repositorio
-        if lang_res.status_code == 200:  # Verifica que la consulta de lenguajes haya sido exitosa
-            for lang, bytes_count in lang_res.json().items():  # Itera sobre cada par de lenguaje y bytes devueltos
-                global_languages[lang] = global_languages.get(lang, 0) + bytes_count  # Acumula los bytes por lenguaje
-                total_bytes += bytes_count  # Suma los bytes al total global acumulado
+        lang_res = session.get(lang_url, timeout=5)
+        if lang_res.status_code == 200:
+            for lang, bytes_count in lang_res.json().items():
+                global_languages[lang] = global_languages.get(lang, 0) + bytes_count
+                total_bytes += bytes_count
 
-    sorted_langs = sorted(global_languages.items(), key=lambda x: x[1], reverse=True)  # Ordena los lenguajes de mayor a menor según sus bytes
-    return sorted_langs, total_bytes  # Retorna la lista ordenada y el total acumulado de bytes
+    sorted_langs = sorted(global_languages.items(), key=lambda x: x[1], reverse=True)
+    return sorted_langs, total_bytes, username
 
-class handler(BaseHTTPRequestHandler):  # Define la clase manejadora de peticiones HTTP para Vercel
-    def do_GET(self):  # Define el método que procesa las solicitudes HTTP GET entrantes
-        current_commit = os.getenv("VERCEL_GIT_COMMIT_SHA", "local-dev")  # Obtiene el SHA del commit actual inyectado por Vercel
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        current_commit = os.getenv("VERCEL_GIT_COMMIT_SHA", "local-dev")
 
-        if CACHE["data"] is None or CACHE["commit_sha"] != current_commit:  # Comprueba si la caché está vacía o si el despliegue cambió
+        if CACHE["data"] is None or CACHE["commit_sha"] != current_commit:
             try:
-                sorted_langs, total_bytes = fetch_github_stats()  # Ejecuta la función de recolección de estadísticas desde GitHub
-                CACHE["data"] = (sorted_langs, total_bytes)  # Actualiza la caché con los nuevos resultados calculados
-                CACHE["commit_sha"] = current_commit  # Actualiza el hash del commit registrado en la caché
-            except Exception as e:  # Captura cualquier excepción o error durante el proceso
-                self.send_response(500)  # Envía un código de estado HTTP 500 (Error interno del servidor)
-                self.end_headers()  # Finaliza las cabeceras HTTP de la respuesta de error
-                self.wfile.write(str(e).encode("utf-8"))  # Escribe el mensaje de error codificado en bytes
+                sorted_langs, total_bytes, username = fetch_github_stats()
+                CACHE["data"] = (sorted_langs, total_bytes, username)
+                CACHE["commit_sha"] = current_commit
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode("utf-8"))
                 return
         else:
-            sorted_langs, total_bytes = CACHE["data"]  # Recupera los datos directamente desde la caché si son válidos
+            sorted_langs, total_bytes, username = CACHE["data"]
 
-        num_langs = len(sorted_langs)  # Obtiene la cantidad total de lenguajes detectados dinámicamente
-        rows = math.ceil(num_langs / 3) if num_langs > 0 else 1  # Calcula la cantidad de filas necesarias dividiendo en columnas de 3
-        svg_height = max(120, 50 + (rows * 25) + 15)  # Calcula la altura dinámica total del SVG según las filas de lenguajes
+        num_langs = len(sorted_langs)
+        rows = math.ceil(num_langs / 3) if num_langs > 0 else 1
+        svg_height = max(120, 50 + (rows * 25) + 15)
 
         svg_content = f'''<svg width="490" height="{svg_height}" viewBox="0 0 490 {svg_height}" xmlns="http://www.w3.org/2000/svg">
             <style>
@@ -110,28 +114,28 @@ class handler(BaseHTTPRequestHandler):  # Define la clase manejadora de peticion
                 .lang-text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #8b949e; }}
             </style>
             <rect width="490" height="{svg_height}" fill="#0d1117"/>
-            <text x="20" y="30" class="title">adolforopeza's Public &amp; Private Programming Languages</text>
-        '''  # Define la estructura inicial del SVG plano sin bordes ni esquinas redondeadas
+            <text x="20" y="30" class="title">{username}&apos;s Public &amp; Private Programming Languages</text>
+        '''
 
-        for i, (lang, bytes_count) in enumerate(sorted_langs):  # Itera sobre cada lenguaje ordenado de mayor a menor
-            percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0.0  # Calcula el porcentaje exacto de uso del lenguaje
-            color = COLORS.get(lang, "777BB4")  # Obtiene el color oficial del lenguaje o un valor por defecto si no existe
+        for i, (lang, bytes_count) in enumerate(sorted_langs):
+            percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0.0
+            color = COLORS.get(lang, "777BB4")
 
-            col = i % 3  # Calcula la columna actual (0, 1 o 2) para distribuir en 3 columnas
-            row = i // 3  # Calcula la fila actual basada en el índice iterado
+            col = i % 3
+            row = i // 3
 
-            cx = 20 + (col * 155)  # Define la coordenada horizontal x para el elemento actual
-            cy = 60 + (row * 25)  # Define la coordenada vertical y para el elemento actual
+            cx = 20 + (col * 155)
+            cy = 60 + (row * 25)
 
             svg_content += f'''
                 <circle cx="{cx + 5}" cy="{cy}" r="5" fill="#{color}"/>
                 <text x="{cx + 18}" y="{cy + 4}" class="lang-text">{lang}: {percentage:.1f}%</text>
-            '''  # Agrega el punto indicador de color y el texto del lenguaje con su porcentaje al SVG
+            '''
 
-        svg_content += '</svg>'  # Cierra la etiqueta principal del archivo SVG
+        svg_content += '</svg>'
 
-        self.send_response(200)  # Envía el código de estado HTTP 200 (Éxito)
-        self.send_header("Content-type", "image/svg+xml; charset=utf-8")  # Configura la cabecera como imagen SVG válida
-        self.send_header("Cache-Control", "public, max-age=3600, s-maxage=3600")  # Instruye el almacenamiento en caché HTTP estándar
-        self.end_headers()  # Finaliza las cabeceras de la respuesta HTTP
-        self.wfile.write(svg_content.encode("utf-8"))  # Envía el contenido completo del SVG codificado en UTF-8
+        self.send_response(200)
+        self.send_header("Content-type", "image/svg+xml; charset=utf-8")
+        self.send_header("Cache-Control", "public, max-age=3600, s-maxage=3600")
+        self.end_headers()
+        self.wfile.write(svg_content.encode("utf-8"))
