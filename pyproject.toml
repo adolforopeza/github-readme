@@ -1,2 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "github-stats-shields"
+version = "0.1.0"
+dependencies = [
+    "requests>=2.31.0"
+]
+
 [tool.vercel]
-entrypoint = "api.languages:handler"
+entrypoint = "api/languages.py"
