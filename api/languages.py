@@ -132,6 +132,6 @@ class handler(BaseHTTPRequestHandler):  # Define la clase manejadora de peticion
 
         self.send_response(200)  # Envía el código de estado HTTP 200 (Éxito)
         self.send_header("Content-type", "image/svg+xml; charset=utf-8")  # Configura la cabecera como imagen SVG válida
-        #self.send_header("Cache-Control", "public, max-age=3600, s-maxage=3600")  # Instruye el almacenamiento en caché HTTP estándar
+        self.send_header("Cache-Control", "public, max-age=3600, s-maxage=3600")  # Instruye el almacenamiento en caché HTTP estándar
         self.end_headers()  # Finaliza las cabeceras de la respuesta HTTP
         self.wfile.write(svg_content.encode("utf-8"))  # Envía el contenido completo del SVG codificado en UTF-8
