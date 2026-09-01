@@ -1,7 +1,15 @@
 import os
+import time
 import requests
 from http.server import BaseHTTPRequestHandler
 import math
+
+# Caché en memoria a nivel de proceso serverless
+CACHE = {
+    "data": None,
+    "timestamp": 0
+}
+CACHE_TTL = 3600  # Tiempo de vida de la caché en segundos (1 hora)
 
 COLORS = {
     "PHP": "4F5D95", "JavaScript": "F1E05A", "HTML": "E34C26", "CSS": "563D7C",
@@ -21,64 +29,78 @@ COLORS = {
     "XML": "0060AC", "YAML": "CB171E", "Zig": "EC915C"
 }
 
+def fetch_github_stats():
+    token = os.getenv("GH_TOKEN")
+    if not token:
+        raise ValueError("Missing GH_TOKEN configuration.")
+
+    session = requests.Session()
+    session.headers.update({
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Vercel-Stats-Optimizer"
+    })
+
+    repos = []
+    page = 1
+    per_page = 100
+
+    while True:
+        url = (
+            f"https://api.github.com/user/repos"
+            f"?visibility=all"
+            f"&affiliations=owner,collaborator,organization_member"
+            f"&per_page={per_page}"
+            f"&page={page}"
+        )
+
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            break
+
+        data = response.json()
+        if not data or not isinstance(data, list):
+            break
+
+        repos.extend(data)
+        if len(data) < per_page:
+            break
+        page += 1
+
+    global_languages = {}
+    total_bytes = 0
+
+    for repo in repos:
+        lang_url = repo.get("languages_url")
+        if not lang_url:
+            continue
+
+        lang_res = session.get(lang_url, timeout=5)
+        if lang_res.status_code == 200:
+            for lang, bytes_count in lang_res.json().items():
+                global_languages[lang] = global_languages.get(lang, 0) + bytes_count
+                total_bytes += bytes_count
+
+    sorted_langs = sorted(global_languages.items(), key=lambda x: x[1], reverse=True)
+    return sorted_langs, total_bytes
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        token = os.getenv("GH_TOKEN")
-        if not token:
-            self.send_response(500)
-            self.end_headers()
-            self.wfile.write(b"Missing GH_TOKEN configuration.")
-            return
+        current_time = time.time()
 
-        session = requests.Session()
-        session.headers.update({
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "User-Agent": "Vercel-Stats-Optimizer"
-        })
-
-        repos = []
-        page = 1
-        per_page = 100
-
-        while True:
-            url = (
-                f"https://api.github.com/user/repos"
-                f"?visibility=all"
-                f"&affiliations=owner,collaborator,organization_member"
-                f"&per_page={per_page}"
-                f"&page={page}"
-            )
-
-            response = session.get(url, timeout=10)
-            if response.status_code != 200:
-                break
-
-            data = response.json()
-            if not data or not isinstance(data, list):
-                break
-
-            repos.extend(data)
-            if len(data) < per_page:
-                break
-            page += 1
-
-        global_languages = {}
-        total_bytes = 0
-
-        for repo in repos:
-            lang_url = repo.get("languages_url")
-            if not lang_url:
-                continue
-
-            lang_res = session.get(lang_url, timeout=5)
-            if lang_res.status_code == 200:
-                for lang, bytes_count in lang_res.json().items():
-                    global_languages[lang] = global_languages.get(lang, 0) + bytes_count
-                    total_bytes += bytes_count
-
-        # Ordenar rigurosamente de mayor a menor según cantidad de bytes acumulados
-        sorted_langs = sorted(global_languages.items(), key=lambda x: x[1], reverse=True)
+        # Validar si los datos en caché siguen vigentes
+        if CACHE["data"] is None or (current_time - CACHE["timestamp"]) > CACHE_TTL:
+            try:
+                sorted_langs, total_bytes = fetch_github_stats()
+                CACHE["data"] = (sorted_langs, total_bytes)
+                CACHE["timestamp"] = current_time
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode("utf-8"))
+                return
+        else:
+            sorted_langs, total_bytes = CACHE["data"]
 
         num_langs = len(sorted_langs)
         rows = math.ceil(num_langs / 3) if num_langs > 0 else 1
@@ -112,5 +134,7 @@ class handler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-type", "image/svg+xml; charset=utf-8")
+        # Instruir a Vercel y al navegador que almacenen en caché el SVG por 1 hora (3600s)
+        self.send_header("Cache-Control", "public, max-age=3600, s-maxage=3600")
         self.end_headers()
         self.wfile.write(svg_content.encode("utf-8"))
