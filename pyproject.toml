@@ -10,4 +10,4 @@ dependencies = [
 ]
 
 [tool.vercel]
-entrypoint = "api/languages.py"
+entrypoint = "api.languages:handler"
