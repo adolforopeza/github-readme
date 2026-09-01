@@ -1,6 +1,7 @@
 import os
 import requests
 from http.server import BaseHTTPRequestHandler
+import math
 
 COLORS = {
     "PHP": "4F5D95", "JavaScript": "F1E05A", "HTML": "E34C26", "CSS": "563D7C",
@@ -76,20 +77,24 @@ class handler(BaseHTTPRequestHandler):
                     global_languages[lang] = global_languages.get(lang, 0) + bytes_count
                     total_bytes += bytes_count
 
+        # Ordenar rigurosamente de mayor a menor según cantidad de bytes acumulados
         sorted_langs = sorted(global_languages.items(), key=lambda x: x[1], reverse=True)
 
-        # Generación del SVG optimizado con diseño dark mode nativo de GitHub (#0d1117)
-        svg_content = f'''<svg width="490" height="160" viewBox="0 0 490 160" xmlns="http://www.w3.org/2000/svg">
+        num_langs = len(sorted_langs)
+        rows = math.ceil(num_langs / 3) if num_langs > 0 else 1
+        svg_height = max(120, 50 + (rows * 25) + 15)
+
+        svg_content = f'''<svg width="490" height="{svg_height}" viewBox="0 0 490 {svg_height}" xmlns="http://www.w3.org/2000/svg">
             <style>
                 .title {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #c9d1d9; }}
                 .lang-text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #8b949e; }}
             </style>
-            <rect width="490" height="160" rx="6" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+            <rect width="490" height="{svg_height}" rx="6" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
             <text x="20" y="30" class="title">Estadísticas de Lenguajes (Privados y Públicos)</text>
         '''
 
-        for i, (lang, bytes_count) in enumerate(sorted_langs[:12]):
-            percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0
+        for i, (lang, bytes_count) in enumerate(sorted_langs):
+            percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0.0
             color = COLORS.get(lang, "777BB4")
 
             col = i % 3
