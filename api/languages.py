@@ -111,7 +111,7 @@ class handler(BaseHTTPRequestHandler):
                 .title {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #c9d1d9; }}
                 .lang-text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #8b949e; }}
             </style>
-            <rect width="490" height="{svg_height}" rx="6" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
+            <rect width="490" height="{svg_height}" fill="#0d1117" />
             <text x="20" y="30" class="title">Estadísticas de Lenguajes (Privados y Públicos)</text>
         '''
 
