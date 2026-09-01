@@ -78,44 +78,15 @@ class handler(BaseHTTPRequestHandler):
 
         sorted_langs = sorted(global_languages.items(), key=lambda x: x[1], reverse=True)
 
-        # Generar una barra de progreso SVG o listado SVG limpio optimizado para README
-        svg_items = []
-        x_offset = 0
-        total_width = 490
-        height = 45
-
-        # Barra superior de porcentajes globales
-        bar_rects = []
-        legend_items = []
-
-        col_x = 10
-        col_y = 30
-        idx = 0
-
-        for lang, bytes_count in sorted_langs:
-            percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0
-            color = COLORS.get(lang, "777BB4")
-
-            # Construir elementos visuales en SVG plano
-            if idx < 15: # Mostrar top lenguajes limpios
-                pass
-
-            idx += 1
-
-        # Como alternativa limpia y robusta, generar un SVG contenedor con badges incorporados o texto estructurado
-        # Diseñamos un componente SVG dinámico estilo tarjeta limpia:
+        # Generación del SVG optimizado con diseño dark mode nativo de GitHub (#0d1117)
         svg_content = f'''<svg width="490" height="160" viewBox="0 0 490 160" xmlns="http://www.w3.org/2000/svg">
             <style>
-                .title {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #2f363d; }}
-                .lang-text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #586069; }}
+                .title {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #c9d1d9; }}
+                .lang-text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #8b949e; }}
             </style>
-            <rect width="490" height="160" rx="6" fill="#fff" stroke="#e1e4e8" stroke-width="1"/>
+            <rect width="490" height="160" rx="6" fill="#0d1117" stroke="#30363d" stroke-width="1"/>
             <text x="20" y="30" class="title">Estadísticas de Lenguajes (Privados y Públicos)</text>
         '''
-
-        y_pos = 55
-        x_pos = 20
-        col_width = 150
 
         for i, (lang, bytes_count) in enumerate(sorted_langs[:12]):
             percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0
