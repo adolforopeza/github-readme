@@ -1,7 +1,7 @@
-import os  # Importa el módulo para interactuar con las variables del sistema operativo
-import requests  # Importa la librería para realizar peticiones HTTP a la API de GitHub
-from http.server import BaseHTTPRequestHandler  # Importa el manejador base para la función serverless HTTP
-import math  # Importa funciones matemáticas para calcular filas del diseño SVG
+import os
+import requests
+from http.server import BaseHTTPRequestHandler
+import math
 
 # Diccionario global para almacenar en caché los datos y el hash del commit actual
 CACHE = {
@@ -10,7 +10,7 @@ CACHE = {
 }
 
 # Diccionario optimizado de colores oficiales de GitHub Linguist para los lenguajes
-COLORS = {
+COLORS =  {
     "PHP": "4F5D95", "JavaScript": "F1E05A", "HTML": "E34C26", "CSS": "563D7C",
     "Less": "1D365D", "Shell": "89E051", "GDScript": "355570", "Vue": "41B883",
     "SCSS": "C6538C", "PLpgSQL": "336791", "VCL": "1B887A", "Hack": "878787",
@@ -109,9 +109,9 @@ class handler(BaseHTTPRequestHandler):  # Define la clase manejadora de peticion
                 .title {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #c9d1d9; }}
                 .lang-text {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 12px; fill: #8b949e; }}
             </style>
-            <rect width="490" height="{svg_height}" fill="#0d1117" />
-            <text x="20" y="30" class="title">Estadísticas de Lenguajes (Privados y Públicos)</text>
-        '''  # Define la estructura inicial del SVG con el tema oscuro de GitHub y altura dinámica
+            <rect width="490" height="{svg_height}" fill="#0d1117"/>
+            <text x="20" y="30" class="title">adolforopeza's Public &amp; Private Programming Languages</text>
+        '''  # Define la estructura inicial del SVG plano sin bordes ni esquinas redondeadas
 
         for i, (lang, bytes_count) in enumerate(sorted_langs):  # Itera sobre cada lenguaje ordenado de mayor a menor
             percentage = (bytes_count / total_bytes) * 100 if total_bytes > 0 else 0.0  # Calcula el porcentaje exacto de uso del lenguaje
