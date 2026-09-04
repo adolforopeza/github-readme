@@ -10,6 +10,7 @@ description = "Backend modular para generación dinámica de READMEs y dashboard
 requires-python = ">=3.10"
 dependencies = [
     "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
 ]
 
 [tool.setuptools.packages.find]
