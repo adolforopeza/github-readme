@@ -1,0 +1,7 @@
+pyproject.toml
+api/languages.py
+github_stats_optimizer.egg-info/PKG-INFO
+github_stats_optimizer.egg-info/SOURCES.txt
+github_stats_optimizer.egg-info/dependency_links.txt
+github_stats_optimizer.egg-info/requires.txt
+github_stats_optimizer.egg-info/top_level.txt
