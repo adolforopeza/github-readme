@@ -16,7 +16,6 @@ class handler(BaseHTTPRequestHandler):
         try:
             clean_path = self.path.split("?")[0]
 
-            # Manejo de archivos estáticos (CSS) en entorno de desarrollo local
             if clean_path.startswith("/static/"):
                 file_path = os.path.join(root_dir, "core", clean_path.lstrip("/"))
                 if os.path.exists(file_path) and os.path.isfile(file_path):
@@ -29,21 +28,24 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(content)
                     return
 
-            # Resolución dinámica O(1) de rutas del sistema
             content, c_type, status_code = router.resolve(self.path)
 
             self.send_response(status_code)
+            self.send_header("Content-type", c_type)
             if status_code == 200:
-                self.send_header("Content-type", c_type)
                 self.send_header("Cache-Control", "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400")
             self.end_headers()
 
-            if status_code == 200:
+            if content is not None:
                 self.wfile.write(content.encode("utf-8") if isinstance(content, str) else content)
             else:
                 self.wfile.write(b"Not Found")
 
         except Exception as e:
             self.send_response(500)
+            self.send_header("Content-type", "text/plain; charset=utf-8")
             self.end_headers()
             self.wfile.write(str(e).encode("utf-8"))
+
+    def do_HEAD(self):
+        self.do_GET()
