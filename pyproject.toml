@@ -1,15 +1,16 @@
 # pyproject.toml
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "github-stats-optimizer"
-version = "1.0.0"
+version = "0.1.0"
+description = "Backend modular para generación dinámica de READMEs y dashboards"
+requires-python = ">=3.10"
 dependencies = [
-    "requests>=2.31.0",
-    "supabase>=2.0.0"
+    "python-dotenv>=1.0.0",
 ]
 
-[tool.vercel]
-entrypoint = "api.index:handler"
+[tool.setuptools.packages.find]
+include = ["core*", "api*"]
