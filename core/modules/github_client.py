@@ -4,7 +4,7 @@ from core.config import config
 from core.modules.cache_manager import CacheManager
 
 class GitHubClient:
-    """Cliente HTTP desacoplado para la API de GitHub con soporte de caché y análisis multi-nivel de lenguajes."""
+    """Cliente HTTP optimizado que consume directamente el endpoint consolidado de lenguajes por repositorio o globales."""
 
     def __init__(self):
         self.token = config.GH_TOKEN
@@ -15,28 +15,33 @@ class GitHubClient:
             "User-Agent": "Core-Secure-GitHub-Engine"
         })
 
-    def _fetch_raw_languages(self) -> tuple[dict, int, str]:
-        """Obtiene y cachea la data cruda de repositorios y bytes por lenguaje desde la API."""
-        cache_key = "github_raw_languages_payload"
+    def _fetch_languages_via_endpoint(self, public_only: bool) -> tuple[list[tuple[str, int, float]], int, str]:
+        """Obtiene la lista de repositorios, extrae el link directo de lenguajes de cada uno y calcula los porcentajes con precisión."""
+        cache_key = f"github_languages_endpoint_direct_public_{public_only}_v6"
         cached = CacheManager.get(cache_key)
         if cached:
             return cached
 
         user_res = self.session.get("https://api.github.com/user", timeout=10)
-        username = user_res.json().get("login", "GitHub") if user_res.status_code == 200 else "GitHub"
+        username = user_res.json().get("login", "adolforopeza") if user_res.status_code == 200 else "adolforopeza"
 
         repos = []
         page = 1
         per_page = 100
 
         while True:
-            url = f"https://api.github.com/user/repos?visibility=all&affiliations=owner,collaborator,organization_member&per_page={per_page}&page={page}"
+            url = f"https://api.github.com/user/repos?type=owner&per_page={per_page}&page={page}"
             res = self.session.get(url, timeout=10)
             if res.status_code != 200:
                 break
             data = res.json()
             if not data or not isinstance(data, list):
                 break
+
+            data = [repo for repo in data if not repo.get("fork", False)]
+            if public_only:
+                data = [repo for repo in data if not repo.get("private", True)]
+
             repos.extend(data)
             if len(data) < per_page:
                 break
@@ -46,32 +51,36 @@ class GitHubClient:
         total_bytes = 0
 
         for repo in repos:
+            # Uso directo del endpoint de lenguajes por repositorio (ej: /repos/{owner}/{repo}/languages)
             lang_url = repo.get("languages_url")
             if not lang_url:
                 continue
+
             lang_res = self.session.get(lang_url, timeout=5)
             if lang_res.status_code == 200:
-                for lang, bytes_count in lang_res.json().items():
-                    global_languages[lang] = global_languages.get(lang, 0) + bytes_count
-                    total_bytes += bytes_count
+                lang_data = lang_res.json()
+                if isinstance(lang_data, dict):
+                    for lang, bytes_count in lang_data.items():
+                        if bytes_count > 0:
+                            global_languages[lang] = global_languages.get(lang, 0) + bytes_count
+                            total_bytes += bytes_count
 
-        payload = (global_languages, total_bytes, username)
-        CacheManager.set(cache_key, payload, ttl_seconds=21600)
-        return payload
-
-    def all_languages(self) -> tuple[list[tuple[str, int, float]], int, str]:
-        """Retorna todos los lenguajes detectados, sus bytes y porcentajes exactos (incluyendo 0%)."""
-        global_languages, total_bytes, username = self._fetch_raw_languages()
         result = []
         if total_bytes > 0:
             for lang, b_count in global_languages.items():
-                pct = (b_count / total_bytes) * 100.0
+                pct = round((b_count / total_bytes) * 100.0, 2)
                 result.append((lang, b_count, pct))
 
-        return sorted(result, key=lambda x: x[1], reverse=True), total_bytes, username
+        sorted_result = sorted(result, key=lambda x: x[1], reverse=True)
+        payload = (sorted_result, total_bytes, username)
 
-    def top_languages(self, min_percentage: float = 1.0) -> tuple[list[tuple[str, int, float]], int, str]:
-        """Retorna el top filtrado de lenguajes que superan el umbral porcentual especificado."""
-        langs, total_bytes, username = self.all_languages()
-        filtered = [(lang, b, pct) for lang, b, pct in langs if pct >= min_percentage]
-        return filtered, total_bytes, username
+        CacheManager.set(cache_key, payload, ttl_seconds=1)
+        return payload
+
+    def all_languages(self) -> tuple[list[tuple[str, int, float]], int, str]:
+        """Retorna todos los lenguajes de la infraestructura global usando los endpoints individuales de repositorios."""
+        return self._fetch_languages_via_endpoint(public_only=False)
+
+    def top_languages(self, min_percentage: float = 0.0) -> tuple[list[tuple[str, int, float]], int, str]:
+        """Retorna el top de lenguajes calculado exclusivamente sobre repositorios públicos mediante sus endpoints dedicados."""
+        return self._fetch_languages_via_endpoint(public_only=True)
