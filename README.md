@@ -1,4 +1,4 @@
-# GitHub README & Dynamic Dashboard Generator
+# GitHub README
 
 Backend modular optimizado en Python para la generación dinámica de perfiles, dashboards y assets visuales, diseñado bajo una arquitectura desacoplada compatible con entornos Serverless (Vercel) y ejecución local.
 
